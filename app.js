@@ -1,4 +1,5 @@
-const { useState, useEffect } = React;
+import React, { useState, useEffect } from 'react';
+import { Calendar, Plus, Search, Bell, User, Package, Heart, MessageSquare, ChevronRight, X, Edit2, Trash2 } from 'lucide-react';
 
 const CustomerFollowUpApp = () => {
   const [customers, setCustomers] = useState([]);
@@ -27,7 +28,6 @@ const CustomerFollowUpApp = () => {
     customerList.forEach(customer => {
       customer.products?.forEach(product => {
         const startDate = new Date(product.startDate);
-        
         const lastFollowUp = product.followUps?.[0];
         const lastFollowUpDate = lastFollowUp ? new Date(lastFollowUp.date) : startDate;
         const daysSinceLastFollowUp = Math.floor((today - lastFollowUpDate) / (1000 * 60 * 60 * 24));
@@ -46,6 +46,27 @@ const CustomerFollowUpApp = () => {
     setNotifications(pending);
   };
 
+  const getNextFollowUpDate = (customer) => {
+    if (!customer.products || customer.products.length === 0) return null;
+    
+    let earliestNextFollowUp = null;
+    
+    customer.products.forEach(product => {
+      const startDate = new Date(product.startDate);
+      const lastFollowUp = product.followUps?.[0];
+      const lastFollowUpDate = lastFollowUp ? new Date(lastFollowUp.date) : startDate;
+      
+      const nextFollowUpDate = new Date(lastFollowUpDate);
+      nextFollowUpDate.setDate(nextFollowUpDate.getDate() + 14);
+      
+      if (!earliestNextFollowUp || nextFollowUpDate < earliestNextFollowUp) {
+        earliestNextFollowUp = nextFollowUpDate;
+      }
+    });
+    
+    return earliestNextFollowUp;
+  };
+
   const addCustomer = (customerData) => {
     const newCustomer = {
       id: Date.now(),
@@ -55,6 +76,19 @@ const CustomerFollowUpApp = () => {
     };
     setCustomers([...customers, newCustomer]);
     setShowAddCustomer(false);
+  };
+
+  const updateCustomer = (customerId, updatedData) => {
+    setCustomers(customers.map(customer => 
+      customer.id === customerId ? { ...customer, ...updatedData } : customer
+    ));
+  };
+
+  const deleteCustomer = (customerId) => {
+    if (window.confirm('Möchtest du diesen Kunden wirklich löschen?')) {
+      setCustomers(customers.filter(c => c.id !== customerId));
+      setSelectedCustomer(null);
+    }
   };
 
   const addProductToCustomer = (customerId, productData) => {
@@ -72,6 +106,20 @@ const CustomerFollowUpApp = () => {
       return customer;
     }));
     setShowAddProduct(false);
+  };
+
+  const deleteProduct = (customerId, productId) => {
+    if (window.confirm('Möchtest du dieses Produkt wirklich löschen?')) {
+      setCustomers(customers.map(customer => {
+        if (customer.id === customerId) {
+          return {
+            ...customer,
+            products: customer.products.filter(p => p.id !== productId)
+          };
+        }
+        return customer;
+      }));
+    }
   };
 
   const addFollowUp = (customerId, productId, followUpData) => {
@@ -108,12 +156,12 @@ const CustomerFollowUpApp = () => {
             onClick={() => setShowAddCustomer(true)}
             className="bg-white text-blue-600 rounded-full p-2 hover:bg-blue-50"
           >
-            <i data-lucide="plus" style={{width: 24, height: 24}}></i>
+            <Plus size={24} />
           </button>
         </div>
         
         <div className="relative">
-          <i data-lucide="search" className="absolute left-3 top-2.5 text-gray-400" style={{width: 20, height: 20}}></i>
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
           <input
             type="text"
             placeholder="Kunden suchen..."
@@ -127,7 +175,7 @@ const CustomerFollowUpApp = () => {
       {notifications.length > 0 && (
         <div className="bg-orange-100 border-l-4 border-orange-500 p-3">
           <div className="flex items-center">
-            <i data-lucide="bell" className="text-orange-500 mr-2" style={{width: 20, height: 20}}></i>
+            <Bell className="text-orange-500 mr-2" size={20} />
             <span className="font-semibold text-orange-800">
               {notifications.length} Follow-up{notifications.length > 1 ? 's' : ''} fällig
             </span>
@@ -138,7 +186,7 @@ const CustomerFollowUpApp = () => {
       <div className="flex-1 overflow-y-auto">
         {filteredCustomers.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <i data-lucide="user" style={{width: 48, height: 48}} className="mx-auto mb-3 opacity-50"></i>
+            <User size={48} className="mx-auto mb-3 opacity-50" />
             <p>Keine Kunden gefunden</p>
             <button
               onClick={() => setShowAddCustomer(true)}
@@ -151,6 +199,9 @@ const CustomerFollowUpApp = () => {
           <div className="divide-y">
             {filteredCustomers.map(customer => {
               const hasPendingFollowUp = notifications.some(n => n.customerId === customer.id);
+              const nextFollowUp = getNextFollowUpDate(customer);
+              const isOverdue = nextFollowUp && nextFollowUp < new Date();
+              
               return (
                 <div
                   key={customer.id}
@@ -165,11 +216,20 @@ const CustomerFollowUpApp = () => {
                           <span className="ml-2 w-2 h-2 bg-orange-500 rounded-full"></span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs text-gray-500 mt-1">
+                        Start: {new Date(customer.startDate).toLocaleDateString('de-DE')}
+                      </p>
+                      {nextFollowUp && (
+                        <p className={`text-xs mt-1 ${isOverdue ? 'text-orange-600 font-semibold' : 'text-gray-600'}`}>
+                          Nächstes Follow-up: {nextFollowUp.toLocaleDateString('de-DE')}
+                          {isOverdue && ' (überfällig)'}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-600 mt-1">
                         {customer.products?.length || 0} Produkt{customer.products?.length !== 1 ? 'e' : ''}
                       </p>
                     </div>
-                    <i data-lucide="chevron-right" className="text-gray-400" style={{width: 20, height: 20}}></i>
+                    <ChevronRight className="text-gray-400" size={20} />
                   </div>
                 </div>
               );
@@ -182,7 +242,10 @@ const CustomerFollowUpApp = () => {
         <CustomerDetailsModal
           customer={selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
+          onUpdate={(data) => updateCustomer(selectedCustomer.id, data)}
+          onDelete={() => deleteCustomer(selectedCustomer.id)}
           onAddProduct={() => setShowAddProduct(true)}
+          onDeleteProduct={(productId) => deleteProduct(selectedCustomer.id, productId)}
           onAddFollowUp={(productId) => setShowAddFollowUp(productId)}
           notifications={notifications.filter(n => n.customerId === selectedCustomer.id)}
         />
@@ -214,10 +277,20 @@ const CustomerFollowUpApp = () => {
   );
 };
 
-const CustomerDetailsModal = ({ customer, onClose, onAddProduct, onAddFollowUp, notifications }) => {
-  useEffect(() => {
-    lucide.createIcons();
+const CustomerDetailsModal = ({ customer, onClose, onUpdate, onDelete, onAddProduct, onDeleteProduct, onAddFollowUp, notifications }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    name: customer.name,
+    email: customer.email || '',
+    phone: customer.phone || '',
+    startDate: customer.startDate,
+    healthChallenges: customer.healthChallenges || ''
   });
+
+  const handleSaveEdit = () => {
+    onUpdate(editData);
+    setIsEditing(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
@@ -226,30 +299,105 @@ const CustomerDetailsModal = ({ customer, onClose, onAddProduct, onAddFollowUp, 
           <div className="bg-blue-600 text-white p-4 sticky top-0 z-10">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">{customer.name}</h2>
-              <button onClick={onClose} className="p-1">
-                <i data-lucide="x" style={{width: 24, height: 24}}></i>
-              </button>
+              <div className="flex gap-2">
+                {!isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="p-1">
+                    <Edit2 size={20} />
+                  </button>
+                )}
+                <button onClick={onClose} className="p-1">
+                  <X size={24} />
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="p-4 bg-gray-50 border-b">
-            <div className="space-y-2">
-              {customer.email && (
-                <p className="text-sm"><span className="font-semibold">Email:</span> {customer.email}</p>
-              )}
-              {customer.phone && (
-                <p className="text-sm"><span className="font-semibold">Telefon:</span> {customer.phone}</p>
-              )}
-              {customer.healthChallenges && (
-                <div className="mt-3">
-                  <p className="font-semibold text-sm flex items-center">
-                    <i data-lucide="heart" style={{width: 16, height: 16}} className="mr-1 text-red-500"></i>
-                    Gesundheitliche Herausforderungen:
-                  </p>
-                  <p className="text-sm mt-1 text-gray-700">{customer.healthChallenges}</p>
+            {isEditing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={editData.name}
+                    onChange={(e) => setEditData({...editData, name: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
                 </div>
-              )}
-            </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editData.email}
+                    onChange={(e) => setEditData({...editData, email: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Telefon</label>
+                  <input
+                    type="tel"
+                    value={editData.phone}
+                    onChange={(e) => setEditData({...editData, phone: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Startdatum</label>
+                  <input
+                    type="date"
+                    value={editData.startDate}
+                    onChange={(e) => setEditData({...editData, startDate: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Gesundheitliche Herausforderungen</label>
+                  <textarea
+                    value={editData.healthChallenges}
+                    onChange={(e) => setEditData({...editData, healthChallenges: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 h-24"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="flex-1 border border-gray-300 rounded-lg py-2 font-semibold"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="flex-1 bg-blue-600 text-white rounded-lg py-2 font-semibold"
+                  >
+                    Speichern
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center text-sm">
+                  <Calendar size={16} className="mr-2 text-blue-600" />
+                  <span className="font-semibold">Kunde seit:</span>
+                  <span className="ml-2">{new Date(customer.startDate).toLocaleDateString('de-DE')}</span>
+                </div>
+                {customer.email && (
+                  <p className="text-sm"><span className="font-semibold">Email:</span> {customer.email}</p>
+                )}
+                {customer.phone && (
+                  <p className="text-sm"><span className="font-semibold">Telefon:</span> {customer.phone}</p>
+                )}
+                {customer.healthChallenges && (
+                  <div className="mt-3">
+                    <p className="font-semibold text-sm flex items-center">
+                      <Heart size={16} className="mr-1 text-red-500" />
+                      Gesundheitliche Herausforderungen:
+                    </p>
+                    <p className="text-sm mt-1 text-gray-700 whitespace-pre-wrap">{customer.healthChallenges}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="p-4">
@@ -259,7 +407,7 @@ const CustomerDetailsModal = ({ customer, onClose, onAddProduct, onAddFollowUp, 
                 onClick={onAddProduct}
                 className="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm flex items-center"
               >
-                <i data-lucide="plus" style={{width: 16, height: 16}} className="mr-1"></i> Produkt
+                <Plus size={16} className="mr-1" /> Produkt
               </button>
             </div>
 
@@ -269,12 +417,19 @@ const CustomerDetailsModal = ({ customer, onClose, onAddProduct, onAddFollowUp, 
               <div className="space-y-4">
                 {customer.products.map(product => {
                   const hasNotification = notifications.some(n => n.productName === product.name);
+                  const startDate = new Date(product.startDate);
+                  const lastFollowUp = product.followUps?.[0];
+                  const lastFollowUpDate = lastFollowUp ? new Date(lastFollowUp.date) : startDate;
+                  const nextFollowUpDate = new Date(lastFollowUpDate);
+                  nextFollowUpDate.setDate(nextFollowUpDate.getDate() + 14);
+                  const isOverdue = nextFollowUpDate < new Date();
+                  
                   return (
                     <div key={product.id} className="border rounded-lg p-3 bg-white shadow-sm">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <div className="flex items-center">
-                            <i data-lucide="package" style={{width: 18, height: 18}} className="mr-2 text-blue-600"></i>
+                            <Package size={18} className="mr-2 text-blue-600" />
                             <h4 className="font-semibold">{product.name}</h4>
                             {hasNotification && (
                               <span className="ml-2 text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">
@@ -283,32 +438,44 @@ const CustomerDetailsModal = ({ customer, onClose, onAddProduct, onAddFollowUp, 
                             )}
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
-                            Seit {new Date(product.startDate).toLocaleDateString('de-DE')}
+                            Start: {startDate.toLocaleDateString('de-DE')}
+                          </p>
+                          <p className={`text-xs mt-1 ${isOverdue ? 'text-orange-600 font-semibold' : 'text-blue-600'}`}>
+                            Nächstes Follow-up: {nextFollowUpDate.toLocaleDateString('de-DE')}
+                            {isOverdue && ' (überfällig)'}
                           </p>
                         </div>
+                        <button
+                          onClick={() => onDeleteProduct(product.id)}
+                          className="text-red-500 p-1"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
 
                       {product.notes && (
-                        <p className="text-sm text-gray-700 mb-2 italic">"{product.notes}"</p>
+                        <p className="text-sm text-gray-700 mb-2 italic bg-gray-50 p-2 rounded">{product.notes}</p>
                       )}
 
                       <button
                         onClick={() => onAddFollowUp(product.id)}
                         className="w-full bg-green-50 text-green-700 py-2 rounded-lg text-sm font-semibold mt-2 flex items-center justify-center hover:bg-green-100"
                       >
-                        <i data-lucide="message-square" style={{width: 16, height: 16}} className="mr-1"></i>
+                        <MessageSquare size={16} className="mr-1" />
                         Follow-up hinzufügen
                       </button>
 
                       {product.followUps && product.followUps.length > 0 && (
                         <div className="mt-3 space-y-2">
-                          <p className="text-xs font-semibold text-gray-600">Follow-up Historie:</p>
+                          <p className="text-xs font-semibold text-gray-600">
+                            Follow-up Historie ({product.followUps.length}):
+                          </p>
                           {product.followUps.map((followUp, idx) => (
-                            <div key={idx} className="bg-gray-50 p-2 rounded text-sm">
-                              <p className="text-xs text-gray-500">
+                            <div key={idx} className="bg-gray-50 p-2 rounded text-sm border-l-2 border-green-500">
+                              <p className="text-xs text-gray-500 font-semibold">
                                 {new Date(followUp.date).toLocaleDateString('de-DE')}
                               </p>
-                              <p className="mt-1">{followUp.notes}</p>
+                              <p className="mt-1 whitespace-pre-wrap">{followUp.notes}</p>
                             </div>
                           ))}
                         </div>
@@ -318,6 +485,16 @@ const CustomerDetailsModal = ({ customer, onClose, onAddProduct, onAddFollowUp, 
                 })}
               </div>
             )}
+          </div>
+
+          <div className="p-4 border-t bg-gray-50">
+            <button
+              onClick={onDelete}
+              className="w-full bg-red-50 text-red-600 py-3 rounded-lg font-semibold flex items-center justify-center hover:bg-red-100"
+            >
+              <Trash2 size={18} className="mr-2" />
+              Kunde löschen
+            </button>
           </div>
         </div>
       </div>
@@ -330,15 +507,12 @@ const AddCustomerModal = ({ onClose, onSave }) => {
     name: '',
     email: '',
     phone: '',
+    startDate: new Date().toISOString().split('T')[0],
     healthChallenges: ''
   });
 
-  useEffect(() => {
-    lucide.createIcons();
-  });
-
   const handleSubmit = () => {
-    if (formData.name.trim()) {
+    if (formData.name.trim() && formData.startDate) {
       onSave(formData);
     }
   };
@@ -348,7 +522,7 @@ const AddCustomerModal = ({ onClose, onSave }) => {
       <div className="bg-white rounded-lg w-full max-w-md">
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="font-bold text-lg">Neuer Kunde</h3>
-          <button onClick={onClose}><i data-lucide="x" style={{width: 24, height: 24}}></i></button>
+          <button onClick={onClose}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4">
           <div>
@@ -357,6 +531,16 @@ const AddCustomerModal = ({ onClose, onSave }) => {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Max Mustermann"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Startdatum *</label>
+            <input
+              type="date"
+              value={formData.startDate}
+              onChange={(e) => setFormData({...formData, startDate: e.target.value})}
               className="w-full border rounded-lg px-3 py-2"
             />
           </div>
@@ -367,6 +551,7 @@ const AddCustomerModal = ({ onClose, onSave }) => {
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
               className="w-full border rounded-lg px-3 py-2"
+              placeholder="max@example.com"
             />
           </div>
           <div>
@@ -376,6 +561,7 @@ const AddCustomerModal = ({ onClose, onSave }) => {
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
               className="w-full border rounded-lg px-3 py-2"
+              placeholder="+49 123 456789"
             />
           </div>
           <div>
@@ -387,7 +573,7 @@ const AddCustomerModal = ({ onClose, onSave }) => {
               placeholder="z.B. Gelenkschmerzen, Müdigkeit..."
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-2">
             <button
               onClick={onClose}
               className="flex-1 border border-gray-300 rounded-lg py-2 font-semibold"
@@ -414,12 +600,8 @@ const AddProductModal = ({ onClose, onSave }) => {
     notes: ''
   });
 
-  useEffect(() => {
-    lucide.createIcons();
-  });
-
   const handleSubmit = () => {
-    if (formData.name.trim()) {
+    if (formData.name.trim() && formData.startDate) {
       onSave(formData);
     }
   };
@@ -429,7 +611,7 @@ const AddProductModal = ({ onClose, onSave }) => {
       <div className="bg-white rounded-lg w-full max-w-md">
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="font-bold text-lg">Produkt hinzufügen</h3>
-          <button onClick={onClose}><i data-lucide="x" style={{width: 24, height: 24}}></i></button>
+          <button onClick={onClose}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4">
           <div>
@@ -439,6 +621,7 @@ const AddProductModal = ({ onClose, onSave }) => {
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               className="w-full border rounded-lg px-3 py-2"
+              placeholder="z.B. Vitamin D3"
             />
           </div>
           <div>
@@ -449,6 +632,9 @@ const AddProductModal = ({ onClose, onSave }) => {
               onChange={(e) => setFormData({...formData, startDate: e.target.value})}
               className="w-full border rounded-lg px-3 py-2"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Follow-up wird automatisch auf 14 Tage später gesetzt
+            </p>
           </div>
           <div>
             <label className="block text-sm font-semibold mb-1">Notizen</label>
@@ -486,10 +672,6 @@ const AddFollowUpModal = ({ customer, productId, onClose, onSave }) => {
     notes: ''
   });
 
-  useEffect(() => {
-    lucide.createIcons();
-  });
-
   const handleSubmit = () => {
     if (formData.notes.trim()) {
       onSave(formData);
@@ -498,10 +680,10 @@ const AddFollowUpModal = ({ customer, productId, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-md">
-        <div className="p-4 border-b flex items-center justify-between">
+      <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
           <h3 className="font-bold text-lg">Follow-up: {product?.name}</h3>
-          <button onClick={onClose}><i data-lucide="x" style={{width: 24, height: 24}}></i></button>
+          <button onClick={onClose}><X size={24} /></button>
         </div>
         <div className="p-4 space-y-4">
           <div>
@@ -520,8 +702,8 @@ const AddFollowUpModal = ({ customer, productId, onClose, onSave }) => {
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              className="w-full border rounded-lg px-3 py-2 h-32"
-              placeholder="z.B. Energie gestiegen, Schmerzen reduziert, keine Veränderung..."
+              className="w-full border rounded-lg px-3 py-2 h-40"
+              placeholder="z.B. Energie gestiegen, Schmerzen reduziert..."
             />
           </div>
           <div className="flex gap-2">
@@ -544,9 +726,4 @@ const AddFollowUpModal = ({ customer, productId, onClose, onSave }) => {
   );
 };
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<CustomerFollowUpApp />);
-
-setTimeout(() => {
-  lucide.createIcons();
-}, 100);
+export default CustomerFollowUpApp
