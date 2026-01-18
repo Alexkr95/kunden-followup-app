@@ -216,9 +216,11 @@ const CustomerFollowUpApp = () => {
                           <span className="ml-2 w-2 h-2 bg-orange-500 rounded-full"></span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Start: {new Date(customer.startDate).toLocaleDateString('de-DE')}
-                      </p>
+                      {customer.startDate && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Start: {new Date(customer.startDate).toLocaleDateString('de-DE')}
+                        </p>
+                      )}
                       {nextFollowUp && (
                         <p className={`text-xs mt-1 ${isOverdue ? 'text-orange-600 font-semibold' : 'text-gray-600'}`}>
                           Nächstes Follow-up: {nextFollowUp.toLocaleDateString('de-DE')}
@@ -376,11 +378,13 @@ const CustomerDetailsModal = ({ customer, onClose, onUpdate, onDelete, onAddProd
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="flex items-center text-sm">
-                  <Calendar size={16} className="mr-2 text-blue-600" />
-                  <span className="font-semibold">Kunde seit:</span>
-                  <span className="ml-2">{new Date(customer.startDate).toLocaleDateString('de-DE')}</span>
-                </div>
+                {customer.startDate && (
+                  <div className="flex items-center text-sm">
+                    <Calendar size={16} className="mr-2 text-blue-600" />
+                    <span className="font-semibold">Kunde seit:</span>
+                    <span className="ml-2">{new Date(customer.startDate).toLocaleDateString('de-DE')}</span>
+                  </div>
+                )}
                 {customer.email && (
                   <p className="text-sm"><span className="font-semibold">Email:</span> {customer.email}</p>
                 )}
