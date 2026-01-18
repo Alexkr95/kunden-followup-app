@@ -100,6 +100,7 @@
             };
             setCustomers([...customers, newCustomer]);
             setShowAddCustomer(false);
+            setSelectedCustomer(newCustomer);
           };
 
           const updateCustomer = (customerId, updatedData) => {
